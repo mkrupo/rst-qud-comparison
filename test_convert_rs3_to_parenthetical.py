@@ -1,4 +1,7 @@
 import io
+import subprocess
+import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -229,6 +232,51 @@ class SourceFidelityTests(unittest.TestCase):
         )
         parsed = build_tree(convert_rs3(source))
         self.assertEqual(node_leaves(parsed), ["Keep (this), Exactly?"])
+
+
+class PathHandlingTests(unittest.TestCase):
+    def test_clis_create_output_directories(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temporary = Path(temporary_directory)
+            rs3_input = temporary / "rs3"
+            rs3_input.mkdir()
+            (rs3_input / "sample.rs3").write_text(
+                xml_document(
+                    '<segment id="1" parent="2" relname="span">text</segment>'
+                    '<group id="2" type="span"/>'
+                ).getvalue(),
+                encoding="utf-8",
+            )
+            tree_output = temporary / "new" / "trees"
+            subprocess.run(
+                [sys.executable, "convert_rs3_to_parenthetical.py", rs3_input, tree_output],
+                cwd=REPOSITORY,
+                check=True,
+            )
+            self.assertTrue((tree_output / "sample.tree").is_file())
+
+            qud_output = temporary / "new" / "qud"
+            subprocess.run(
+                [sys.executable, "convert_rst2qud.py", tree_output, qud_output],
+                cwd=REPOSITORY,
+                check=True,
+            )
+            self.assertTrue((qud_output / "nested" / "sample.qud").is_file())
+            self.assertTrue((qud_output / "unnested" / "sample.qud").is_file())
+
+    def test_clis_reject_missing_input_without_creating_output(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temporary = Path(temporary_directory)
+            for script in ("convert_rs3_to_parenthetical.py", "convert_rst2qud.py"):
+                output = temporary / script
+                result = subprocess.run(
+                    [sys.executable, script, temporary / "missing", output],
+                    cwd=REPOSITORY,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertNotEqual(result.returncode, 0, script)
+                self.assertFalse(output.exists(), script)
 
 
 class ValidationTests(unittest.TestCase):

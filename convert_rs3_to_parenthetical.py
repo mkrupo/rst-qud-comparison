@@ -286,8 +286,9 @@ def main() -> None:
         help="allow relation-type mismatches while retaining structural validation",
     )
     args = parser.parse_args()
-    if not args.in_path.is_dir() or not args.out_path.is_dir():
-        parser.error("in_path and out_path must be existing directories")
+    if not args.in_path.is_dir():
+        parser.error("in_path must be an existing directory")
+    args.out_path.mkdir(parents=True, exist_ok=True)
     inputs = sorted(args.in_path.glob("*.rs3"))
     if not inputs:
         parser.error("input directory contains no .rs3 files")

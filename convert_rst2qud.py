@@ -138,14 +138,15 @@ if __name__ == "__main__":
     parser.add_argument('in_path', type=str)
     parser.add_argument('out_path', type=str)
     args = parser.parse_args()
+    if not os.path.isdir(args.in_path):
+        raise Exception("Input path does not exist")
     fnames = os.listdir(f"{args.in_path}")
-    if not os.path.exists(args.out_path):
-        raise Exception("Output path does not exist")
+    os.makedirs(args.out_path, exist_ok=True)
     
-    if not os.path.exists(f"./{args.out_path}/nested"):
-        os.mkdir(f"./{args.out_path}/nested")
-    if not os.path.exists(f"./{args.out_path}/unnested"):
-        os.mkdir(f"./{args.out_path}/unnested")
+    nested_path = os.path.join(args.out_path, "nested")
+    unnested_path = os.path.join(args.out_path, "unnested")
+    os.makedirs(nested_path, exist_ok=True)
+    os.makedirs(unnested_path, exist_ok=True)
 
     for fname in fnames:
         if fname.endswith("tree"):
@@ -155,5 +156,5 @@ if __name__ == "__main__":
                 tree_str = content[-1]
                 tree = build_tree(tree_str)
                 qud_name = fname.replace(".tree", ".qud")
-                write_qud_to_file_without_nesting(tree, f'./{args.out_path}/unnested/{qud_name}')
-                write_qud_to_file_with_nesting(tree, f'./{args.out_path}/nested/{qud_name}')
+                write_qud_to_file_without_nesting(tree, os.path.join(unnested_path, qud_name))
+                write_qud_to_file_with_nesting(tree, os.path.join(nested_path, qud_name))
