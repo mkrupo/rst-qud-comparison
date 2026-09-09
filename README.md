@@ -1,14 +1,53 @@
 # rst-qud-comparison
 
-# Data 
-The annotated data consists of 14 blogposts as well as chunks of 14 podcast transcripts. In some podcasts transcripts, more than one chunk of text has been annotated. This is indicated by a ```{episode_name}_p{chunk_id}```. For instance, two chunks have been taken from the DELL003 transcript and the filenames indicate those chunks as ```DELL003_Transkript_p1``` and ```DELL003_Transkript_p2```. 
+# Data
+
+The annotated data consists of 14 blog posts and chunks of 14 podcast transcripts. Some transcripts contain more than one annotated chunk, indicated by `{episode_name}_p{chunk_id}`; for example, `DELL003_Transkript_p1` and `DELL003_Transkript_p2`.
+
+# Setup
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
 # Conversion
-To convert, use the convert_rst2qud script. The script needs an input directory and an output directory. The input directory should contain parenthetical RST trees. Look at ```rst/parenthetical``` directory to see expected input samples. 
 
+The repository's existing RST-to-QUD pipeline expects its input in the parenthetical RST `.tree` representation. For supported RS3 XML `.rs3` annotations, the workflow is:
+
+```text
+.rs3 -> .tree -> QUD-like structural output
 ```
+
+## RS3 XML to parenthetical RST
+
+The converter reads `.rs3` files from an existing input directory and writes same-named `.tree` files to the requested output directory, creating it if necessary:
+
+```bash
+python3 convert_rs3_to_parenthetical.py path/to/rs3-directory output/parenthetical
+```
+
+Strict structural and relation-schema validation is the default. The `--compatibility` option is only for legacy data whose encoded structure is convertible but whose relation use conflicts with its RS3 declarations.
+
+## Parenthetical RST to QUD-like structure
+
+Convert generated parenthetical trees from an existing input directory with:
+
+```bash
+python3 convert_rst2qud.py output/parenthetical output/qud
+```
+
+The output directory is created automatically, including its `nested/` and `unnested/` subdirectories.
+
+The original committed parenthetical annotations can be converted directly:
+
+```bash
 python3 convert_rst2qud.py rst/parenthetical qud-output
 ```
 
-(We will update this repository to make it possible to go from an .rs3 xml file to a QUD-like format.)
+# Tests
 
+```bash
+python -m unittest -v
+```
