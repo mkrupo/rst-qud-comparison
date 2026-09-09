@@ -37,11 +37,9 @@ def build_tree(t):
                 leaf_count += 1
                 assert elements[i+2] == 't'
                 seg_text = ''
-                for j in range(i, len(elements)):
+                for j in range(i+3, len(elements)):
                     if elements[j] == ')':
                         break
-                    if elements[j] in ['(', 'leaf', 't']:
-                        continue
                     seg_text += ' ' + elements[j]
                 
                 seg_text = seg_text.replace("\)", ")").replace("\(", "(")
