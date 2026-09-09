@@ -233,6 +233,38 @@ class SourceFidelityTests(unittest.TestCase):
         parsed = build_tree(convert_rs3(source))
         self.assertEqual(node_leaves(parsed), ["Keep (this), Exactly?"])
 
+    def test_multinuc_core_accepts_one_rst_satellite_on_either_side(self):
+        relations = (
+            '<rel name="conjunction" type="multinuc"/>'
+            '<rel name="evidence" type="rst"/>'
+        )
+        cases = [
+            (
+                '<segment id="1" parent="9" relname="evidence">Left satellite.</segment>'
+                '<segment id="2" parent="9" relname="conjunction">Core one.</segment>'
+                '<segment id="3" parent="9" relname="conjunction">Core two.</segment>'
+                '<group id="9" type="multinuc"/>',
+                "( evidence r ( leaf t Left satellite. ) "
+                "( conjunction c ( leaf t Core one. ) ( leaf t Core two. ) ) ) ",
+                ["Left satellite.", "Core one.", "Core two."],
+            ),
+            (
+                '<segment id="1" parent="9" relname="conjunction">Core one.</segment>'
+                '<segment id="2" parent="9" relname="conjunction">Core two.</segment>'
+                '<segment id="3" parent="9" relname="evidence">Right satellite.</segment>'
+                '<group id="9" type="multinuc"/>',
+                "( evidence l ( conjunction c ( leaf t Core one. ) "
+                "( leaf t Core two. ) ) ( leaf t Right satellite. ) ) ",
+                ["Core one.", "Core two.", "Right satellite."],
+            ),
+        ]
+        for body, expected, expected_leaves in cases:
+            with self.subTest(satellite=expected_leaves[0]):
+                converted = convert_rs3(xml_document(body, relations))
+                self.assertEqual(converted, expected)
+                self.assertEqual(leaves(parse_parenthetical(converted)), expected_leaves)
+                self.assertEqual(node_leaves(build_tree(converted)), expected_leaves)
+
 
 class PathHandlingTests(unittest.TestCase):
     def test_clis_create_output_directories(self):
@@ -319,13 +351,15 @@ class ValidationTests(unittest.TestCase):
         self.assertStructureError(
             '<segment id="1" parent="2" relname="conjunction">one</segment>'
             '<group id="2" type="multinuc"/>',
-            "two to five related children",
+            "at least two multinuclear-core children",
         )
         relations = (
             '<rel name="conjunction" type="multinuc"/>'
             '<rel name="list" type="multinuc"/>'
         )
-        with self.assertRaisesRegex(RS3StructureError, "heterogeneous relations"):
+        with self.assertRaisesRegex(
+            RS3StructureError, "heterogeneous multinuclear-core relations"
+        ):
             convert_rs3(
                 xml_document(
                     '<segment id="1" parent="3" relname="conjunction">one</segment>'
@@ -334,6 +368,24 @@ class ValidationTests(unittest.TestCase):
                     relations,
                 )
             )
+
+    def test_multiple_rst_satellites_on_multinuc_are_rejected(self):
+        relations = (
+            '<rel name="joint" type="multinuc"/>'
+            '<rel name="evidence" type="rst"/>'
+            '<rel name="evaluation-n" type="rst"/>'
+        )
+        body = (
+            '<segment id="1" parent="9" relname="evidence">satellite one</segment>'
+            '<segment id="2" parent="9" relname="joint">core one</segment>'
+            '<segment id="3" parent="9" relname="joint">core two</segment>'
+            '<segment id="4" parent="9" relname="evaluation-n">satellite two</segment>'
+            '<group id="9" type="multinuc"/>'
+        )
+        with self.assertRaisesRegex(
+            RS3StructureError, "multi-satellite normalization is unsupported"
+        ):
+            convert_rs3(xml_document(body, relations))
 
     def test_schema_mismatch_is_strict_only_and_structure_is_preserved(self):
         body = (

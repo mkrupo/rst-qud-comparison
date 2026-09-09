@@ -120,6 +120,30 @@ def _descendant_positions(document: Document) -> dict[str, frozenset[int]]:
     return positions
 
 
+def _multinuc_children(document: Document, node_id: str):
+    core = []
+    satellites = []
+    for child_id in document.children[node_id]:
+        child = document.nodes[child_id]
+        if child.relation in {None, "span"}:
+            raise RS3StructureError(
+                f"Multinuc group {node_id!r} has child {child_id!r} "
+                f"with invalid relation {child.relation!r}"
+            )
+        declared = document.relation_types.get(child.relation, set())
+        if declared == {"multinuc"}:
+            core.append(child_id)
+        elif declared == {"rst"}:
+            satellites.append(child_id)
+        else:
+            declaration = ", ".join(sorted(declared)) if declared else "undeclared"
+            raise RS3StructureError(
+                f"Multinuc child {child_id!r} relation {child.relation!r} must be "
+                f"declared as exactly one of rst or multinuc, not {declaration}"
+            )
+    return core, satellites
+
+
 def validate_structure(document: Document) -> str:
     state = {}
 
@@ -170,14 +194,27 @@ def validate_structure(document: Document) -> str:
                     "and at most one satellite"
                 )
         else:
-            relations = {child.relation for child in children}
-            if not 2 <= len(children) <= 5 or None in relations or "span" in relations:
+            if len(children) < 2:
                 raise RS3StructureError(
-                    f"Multinuc group {node.node_id!r} requires two to five related children"
+                    f"Multinuc group {node.node_id!r} requires at least two "
+                    "multinuclear-core children"
                 )
+            core, satellites = _multinuc_children(document, node.node_id)
+            if len(satellites) > 1:
+                raise RS3StructureError(
+                    f"Multinuc group {node.node_id!r} has multiple RST satellites; "
+                    "multi-satellite normalization is unsupported"
+                )
+            if not 2 <= len(core) <= 5:
+                raise RS3StructureError(
+                    f"Multinuc group {node.node_id!r} requires two to five "
+                    "multinuclear-core children"
+                )
+            relations = {document.nodes[child_id].relation for child_id in core}
             if len(relations) != 1:
                 raise RS3StructureError(
-                    f"Multinuc group {node.node_id!r} has heterogeneous relations: "
+                    f"Multinuc group {node.node_id!r} has heterogeneous "
+                    "multinuclear-core relations: "
                     f"{sorted(relations)}"
                 )
 
@@ -195,6 +232,19 @@ def validate_structure(document: Document) -> str:
             raise RS3StructureError(
                 f"Node {node.node_id!r} has a non-projective child ordering"
             )
+        if node.kind == "multinuc":
+            core, satellites = _multinuc_children(document, node.node_id)
+            if satellites:
+                core_positions = frozenset().union(*(positions[child_id] for child_id in core))
+                satellite_positions = positions[satellites[0]]
+                if not (
+                    max(core_positions) < min(satellite_positions)
+                    or max(satellite_positions) < min(core_positions)
+                ):
+                    raise RS3StructureError(
+                        f"RST satellite in multinuc group {node.node_id!r} "
+                        "interleaves its multinuclear core"
+                    )
     return group_roots[0].node_id
 
 
@@ -203,7 +253,9 @@ def schema_issues(document: Document) -> list[str]:
     for node in document.nodes.values():
         if not node.parent or node.relation == "span":
             continue
-        expected = "multinuc" if document.nodes[node.parent].kind == "multinuc" else "rst"
+        if document.nodes[node.parent].kind == "multinuc":
+            continue
+        expected = "rst"
         declared = document.relation_types.get(node.relation, set())
         if expected not in declared:
             declaration = ", ".join(sorted(declared)) if declared else "undeclared"
@@ -240,11 +292,17 @@ def _render(document: Document, root_id: str) -> str:
         node = document.nodes[node_id]
         child_ids = document.children[node_id]
         if node.kind == "multinuc":
-            ordered = sorted(child_ids, key=lambda child_id: min(positions[child_id]))
+            core, satellites = _multinuc_children(document, node_id)
+            ordered = sorted(core, key=lambda child_id: min(positions[child_id]))
             relation = document.nodes[ordered[0]].relation
             result = render(ordered[0])
             for child_id in ordered[1:]:
                 result = f"( {relation} c {result} {render(child_id)} )"
+            if satellites:
+                core_positions = frozenset().union(
+                    *(positions[child_id] for child_id in core)
+                )
+                result = attach(core_positions, result, satellites[0])
             return result
 
         if node.kind == "segment":
