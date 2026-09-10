@@ -1,25 +1,53 @@
 # RS3 structural normalization
 
-RS3 permits a nucleus to have several satellites, while the repository's parenthetical RST representation and RST-Tace require binary nucleus-satellite attachments. `normalize_rs3.py` supplies one deterministic structure for both evaluation paths. The parenthetical converter applies it in memory; the normalization command can instead write derived RS3 files:
+RS3 can represent one nucleus with several satellites as a single, flat schema. The repository's parenthetical RST representation is binary: every ordinary rhetorical relation connects one nucleus and one satellite. RST-Tace likewise expects at most one mononuclear relation at each structural node. Multi-satellite RS3 therefore needs a deterministic binary structure before either workflow can process it.
+
+`normalize_rs3.py` validates RS3 XML and writes this derived structure without modifying the source files:
 
 ```bash
 python3 normalize_rs3.py path/to/rs3-directory output/normalized-rs3
 ```
 
-Strict structural and relation-schema validation is the default. `--compatibility` only permits legacy relation-type inconsistencies; it does not relax structural validation or rewrite relation labels.
+Strict structural and relation-schema validation is the default. `--compatibility` is only for legacy input whose structure is convertible but whose relation use conflicts with its RS3 declarations; it does not relax structural checks or rewrite relation labels.
 
-## Canonical rule
+## Normalization rule
 
 Starting with the annotated nucleus subtree:
 
 1. Attach preceding (left) satellites from nearest to farthest.
 2. Attach succeeding (right) satellites from nearest to farthest.
-3. After each attachment, use the resulting span as the nucleus of the next attachment.
+3. After every attachment, treat the resulting span as the nucleus for the next attachment.
 
-Thus a two-sided schema always processes the left side before the right side. This is an inside-to-outside convention, not a general left-branching rule. It applies recursively whether the nucleus is an EDU, a span subtree, or a multinuclear subtree. Parenthetical output continues to left-binarize n-ary multinuclear cores in textual order.
+For a flat `S-N-S-S` schema, the transformation is:
 
-The human annotation contains the nucleus and its satellites but does not specify all binary intermediate constituents. Normalization creates span groups only for those required intermediate constituents and otherwise retains node IDs, EDU order and text, relation labels, and relation declarations. Original gold RS3 files are never overwritten; normalized RS3 is a derived evaluation representation.
+```text
+Human RS3 order:       S-left   N   S-right-1   S-right-2
+                                  │
+Left satellite first:       (S-left  N)
+                                  │
+Right, near to far:         ((S-left  N)  S-right-1)
+                                  │
+Normalized binary tree:    (((S-left  N)  S-right-1)  S-right-2)
+```
 
-At rst-converter-service commit `e3b5dedff7fd0f9e05508ba6a23119d2b77686d2`, its normalization produces the same constituent yields for all eight affected ArgMicrotext Original files currently used here. That service uses a cross-side subtree-height heuristic, however, so it can choose a different order for hypothetical two-sided schemas. This project deliberately uses the simpler left-before-right convention.
+This is an inside-to-outside rule, not an "always left-branching" rule. For a two-sided schema, the left side is processed before the right side. The same recursive rule applies whether the nucleus is a single EDU, a span subtree, or a multinuclear subtree. Parenthetical conversion separately left-binarizes n-ary multinuclear cores in textual order.
 
-Both RST-Tace comparison and Shahmohammadi-style unlabelled Parseval comparison are therefore performed after canonical normalization. Artificial intermediate spans can participate in the resulting metrics; they must not be interpreted as additional human annotations.
+## Derived structure and evaluation
+
+The original annotation identifies the nucleus and its satellites but does not specify every binary intermediate constituent. Normalization introduces only the span groups needed to make those attachments binary. It preserves EDU order and text, relation names and declarations, and existing node IDs; new IDs are assigned only to generated span groups.
+
+Normalized RS3 is a derived evaluation representation, not a replacement for the human annotation. Original RS3 files should remain unchanged.
+
+```text
+human RS3
+   │
+   ▼
+normalize_rs3.py
+   │
+   ▼
+normalized RS3
+   ├──► RST-Tace comparison
+   └──► RS3 → parenthetical RST → QUD-like structural output
+```
+
+Because evaluation operates on the normalized representation, generated intermediate spans can participate in constituent-based scores. Results should therefore be understood as comparison after this documented canonical normalization.

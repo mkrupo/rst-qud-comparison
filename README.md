@@ -17,8 +17,18 @@ pip install -r requirements.txt
 The repository's existing RST-to-QUD pipeline expects its input in the parenthetical RST `.tree` representation. For supported RS3 XML `.rs3` annotations, the workflow is:
 
 ```text
-.rs3 -> .tree -> QUD-like structural output
+.rs3 -> normalized structure -> .tree -> QUD-like structural output
 ```
+
+## RS3 normalization
+
+Multi-satellite RS3 schemas require a deterministic binary normalization for parenthetical conversion and tools such as RST-Tace. The parenthetical converter applies this normalization in memory. To write separate, derived normalized RS3 files, run:
+
+```bash
+python3 normalize_rs3.py path/to/rs3-directory output/normalized-rs3
+```
+
+Strict structural and relation-schema validation is the default. The `--compatibility` option is only for legacy data whose structure is convertible but whose relation use conflicts with its RS3 declarations. See [RS3 structural normalization](docs/rs3_normalization.md) for the rule and its evaluation implications.
 
 ## RS3 XML to parenthetical RST
 
@@ -27,10 +37,6 @@ The converter reads `.rs3` files from an existing input directory and writes sam
 ```bash
 python3 convert_rs3_to_parenthetical.py path/to/rs3-directory output/parenthetical
 ```
-
-Strict structural and relation-schema validation is the default. The `--compatibility` option is only for legacy data whose encoded structure is convertible but whose relation use conflicts with its RS3 declarations.
-
-Multi-satellite schemas are canonically normalized in memory during conversion. To write the same derived normalization as separate RS3 files (for example, for RST-Tace), run `python3 normalize_rs3.py path/to/rs3-directory output/normalized-rs3`; see [RS3 normalization](docs/rs3_normalization.md).
 
 ## Parenthetical RST to QUD-like structure
 
