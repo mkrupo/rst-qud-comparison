@@ -279,6 +279,14 @@ class PathHandlingTests(unittest.TestCase):
                 ).getvalue(),
                 encoding="utf-8",
             )
+            normalized_output = temporary / "new" / "normalized"
+            subprocess.run(
+                [sys.executable, "normalize_rs3.py", rs3_input, normalized_output],
+                cwd=REPOSITORY,
+                check=True,
+            )
+            self.assertTrue((normalized_output / "sample.rs3").is_file())
+
             tree_output = temporary / "new" / "trees"
             subprocess.run(
                 [sys.executable, "convert_rs3_to_parenthetical.py", rs3_input, tree_output],
@@ -299,7 +307,11 @@ class PathHandlingTests(unittest.TestCase):
     def test_clis_reject_missing_input_without_creating_output(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             temporary = Path(temporary_directory)
-            for script in ("convert_rs3_to_parenthetical.py", "convert_rst2qud.py"):
+            for script in (
+                "normalize_rs3.py",
+                "convert_rs3_to_parenthetical.py",
+                "convert_rst2qud.py",
+            ):
                 output = temporary / script
                 result = subprocess.run(
                     [sys.executable, script, temporary / "missing", output],
@@ -369,7 +381,7 @@ class ValidationTests(unittest.TestCase):
                 )
             )
 
-    def test_multiple_rst_satellites_on_multinuc_are_rejected(self):
+    def test_multiple_rst_satellites_on_multinuc_are_normalized(self):
         relations = (
             '<rel name="joint" type="multinuc"/>'
             '<rel name="evidence" type="rst"/>'
@@ -382,10 +394,12 @@ class ValidationTests(unittest.TestCase):
             '<segment id="4" parent="9" relname="evaluation-n">satellite two</segment>'
             '<group id="9" type="multinuc"/>'
         )
-        with self.assertRaisesRegex(
-            RS3StructureError, "multi-satellite normalization is unsupported"
-        ):
-            convert_rs3(xml_document(body, relations))
+        self.assertEqual(
+            convert_rs3(xml_document(body, relations)),
+            "( evaluation-n l ( evidence r ( leaf t satellite one ) "
+            "( joint c ( leaf t core one ) ( leaf t core two ) ) ) "
+            "( leaf t satellite two ) ) ",
+        )
 
     def test_schema_mismatch_is_strict_only_and_structure_is_preserved(self):
         body = (

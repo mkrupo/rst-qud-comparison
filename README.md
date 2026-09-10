@@ -30,6 +30,8 @@ python3 convert_rs3_to_parenthetical.py path/to/rs3-directory output/parenthetic
 
 Strict structural and relation-schema validation is the default. The `--compatibility` option is only for legacy data whose encoded structure is convertible but whose relation use conflicts with its RS3 declarations.
 
+Multi-satellite schemas are canonically normalized in memory during conversion. To write the same derived normalization as separate RS3 files (for example, for RST-Tace), run `python3 normalize_rs3.py path/to/rs3-directory output/normalized-rs3`; see [RS3 normalization](docs/rs3_normalization.md).
+
 ## Parenthetical RST to QUD-like structure
 
 Convert generated parenthetical trees from an existing input directory with:
